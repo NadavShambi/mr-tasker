@@ -1,6 +1,7 @@
 const dbService = require('../../services/db.service')
 const logger = require('../../services/logger.service')
 const utilService = require('../../services/util.service')
+const externalService = require('../../services/external.service')
 const ObjectId = require('mongodb').ObjectId
 
 async function query(filterBy = { title: '' }) {
@@ -44,6 +45,16 @@ async function add(task) {
         const collection = await dbService.getCollection('task')
         await collection.insertOne(task)
         return task
+    } catch (err) {
+        logger.error('cannot insert task', err)
+        throw err
+    }
+}
+async function addMany(tasks) {
+    try {
+        const collection = await dbService.getCollection('task')
+        await collection.insertMany(tasks)
+        return tasks
     } catch (err) {
         logger.error('cannot insert task', err)
         throw err
@@ -94,7 +105,7 @@ async function performTask(task) {
         taskToSave.status = 'running'
         await update(taskToSave)
         // TODO: execute the task using: externalService.execute
-        await _execute(taskToSave)
+        await externalService.execute(taskToSave)
         // TODO: update task for success (doneAt, status)
         taskToSave.status = 'done'
         taskToSave.doneAt = Date.now()
@@ -115,8 +126,8 @@ async function performTask(task) {
 async function getNextTask() {
     try {
         const collection = await dbService.getCollection('task')
-        const nextTask = await collection.find({ triesCount: { $lt: 5 } }).sort({ importance: -1, triesCount: 1 }).limit(1)
-        return nextTask
+        const nextTask = await collection.find({ triesCount: { $lt: 5 },status:{$ne:'done'} }).sort({ importance: -1, triesCount: 1 }).limit(1).toArray()
+        return nextTask[0]
     } catch (err) {
         logger.error('Failed to get Mongo nextTask', err)
         throw err
@@ -124,20 +135,13 @@ async function getNextTask() {
 }
 
 
-function _execute(task) {
-    return new Promise((resolve, reject) => {
-        setTimeout(() => {
-            if (Math.random() > 0.5) resolve(parseInt(Math.random() * 100))
-            // TODO: throw some more random errors
-            else reject('High Temparture');
-        }, 5000)
-    })
-}
+
 module.exports = {
     remove,
     query,
     getById,
     add,
+    addMany,
     update,
     addTaskMsg,
     removeTaskMsg,

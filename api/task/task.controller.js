@@ -1,8 +1,9 @@
 const taskService = require('./task.service.js')
 
 const logger = require('../../services/logger.service')
+const externalService = require('../../services/external.service')
 
-async function getTasks(req, res) {
+async function getTasks(req, res, next) {
   try {
     logger.debug('Getting Tasks')
     const filterBy = {
@@ -10,6 +11,8 @@ async function getTasks(req, res) {
     }
     const tasks = await taskService.query(filterBy)
     res.json(tasks)
+    next()
+
   } catch (err) {
     logger.error('Failed to get tasks', err)
     res.status(500).send({ err: 'Failed to get tasks' })
@@ -37,6 +40,18 @@ async function addTask(req, res) {
     res.json(addedTask)
   } catch (err) {
     logger.error('Failed to add task', err)
+    res.status(500).send({ err: 'Failed to add task' })
+  }
+}
+async function addTasks(req, res) {
+
+  try {
+    const tasks = req.body
+    console.log('CONTROLLER',tasks);
+    const addedTasks = await taskService.addMany(tasks)
+    res.json(addedTasks)
+  } catch (err) {
+    logger.error('Failed to add tasks', err)
     res.status(500).send({ err: 'Failed to add task' })
   }
 }
@@ -107,14 +122,57 @@ async function performTask(req, res) {
   }
 }
 
+var timeout
+var isWorkerOn = true
+async function runWorker(req, res) {
+  // The isWorkerOn is toggled by the button: "Start/Stop Task Worker"
+
+  if (!isWorkerOn) return
+  var delay = 5000
+  try {
+    logger.debug('Wake up worker!')
+    const task = await taskService.getNextTask()
+    if (task) {
+      try {
+        await taskService.performTask(task)
+      } catch (err) {
+        console.log(`Failed Task`, err)
+      } finally {
+        delay = 1
+      }
+    } else {
+      console.log('Snoozing... no tasks to perform')
+    }
+  } catch (err) {
+    console.log(`Failed getting next task to execute`, err)
+    res.status(500).send({ err: 'Failed getting next task to execute' })
+
+  } finally {
+    clearTimeout(timeout)
+    timeout = setTimeout(runWorker, delay)
+  }
+}
+
+
+function execute(task) {
+  return new Promise((resolve, reject) => {
+    setTimeout(() => {
+      if (Math.random() > 0.5) resolve(parseInt(Math.random() * 100))
+      // TODO: throw some more random errors
+      else reject('High Temparture');
+    }, 5000)
+  })
+}
 
 module.exports = {
   getTasks,
   getTaskById,
   addTask,
+  addTasks,
   updateTask,
   removeTask,
   addTaskMsg,
   removeTaskMsg,
-  performTask
+  performTask,
+  runWorker
 }

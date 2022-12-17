@@ -1,11 +1,14 @@
-const taskService = require('./task.service.js')
+const logger = require('./logger.service')
+const taskService = require('../api/task/task.service.js')
 
-
+var isWorkerOn = true
 async function runWorker() {
     // The isWorkerOn is toggled by the button: "Start/Stop Task Worker"
-    // if (!isWorkerOn) return
+
+    if (!isWorkerOn) return
     var delay = 5000
     try {
+        logger.debug('Wake up worker!')
         const task = await taskService.getNextTask()
         if (task) {
             try {
@@ -25,6 +28,16 @@ async function runWorker() {
     }
 }
 
+
+function execute(task) {
+    return new Promise((resolve, reject) => {
+        setTimeout(() => {
+            if (Math.random() > 0.5) resolve(parseInt(Math.random() * 100))
+            // TODO: throw some more random errors
+            else reject('High Temparture');
+        }, 5000)
+    })
+}
 module.exports = {
-    runWorker
+    execute
 }
