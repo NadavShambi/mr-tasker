@@ -9,7 +9,7 @@ const http = require('http').createServer(app)
 // Express App Config
 app.use(cookieParser())
 app.use(express.json())
-
+app.use(express.static('public'))
 
 if (process.env.NODE_ENV === 'production') {
     app.use(express.static(path.resolve(__dirname, 'public')))
@@ -25,7 +25,7 @@ const authRoutes = require('./api/auth/auth.routes')
 const userRoutes = require('./api/user/user.routes')
 const reviewRoutes = require('./api/review/review.routes')
 const taskRoutes = require('./api/task/task.routes')
-const {setupSocketAPI} = require('./services/socket.service')
+const { setupSocketAPI } = require('./services/socket.service')
 
 // routes
 const setupAsyncLocalStorage = require('./middlewares/setupAls.middleware')
@@ -46,7 +46,12 @@ app.get('/**', (req, res) => {
 
 
 const logger = require('./services/logger.service')
-const port = process.env.PORT || 3030
-http.listen(port, () => {
-    logger.info('Server is running on port: ' + port)
-})
+// const port = process.env.PORT || 3030
+// http.listen(port, () => {
+//     logger.info('Server is running on port: ' + port)
+// })
+
+const port = process.env.PORT || 3000;
+app.listen(port, () => {
+    console.log(`App listening on port ${port}!`)
+});
