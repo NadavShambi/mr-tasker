@@ -2,6 +2,7 @@ const dbService = require('../../services/db.service')
 const logger = require('../../services/logger.service')
 const utilService = require('../../services/util.service')
 const externalService = require('../../services/external.service')
+const socketService = require('../../services/socket.service')
 const ObjectId = require('mongodb').ObjectId
 
 async function query(filterBy = { title: '' }) {
@@ -53,8 +54,8 @@ async function add(task) {
 async function addMany(tasks) {
     try {
         const collection = await dbService.getCollection('task')
-        await collection.insertMany(tasks)
-        return tasks
+        const result = await collection.insertMany(tasks)
+        return result
     } catch (err) {
         logger.error('cannot insert task', err)
         throw err
@@ -63,37 +64,26 @@ async function addMany(tasks) {
 
 async function update(task) {
     try {
-        const taskToSave = { ...task }
-        delete taskToSave._id
-        console.log(taskToSave);
+        socketService.emit('update-task', task)
+        const id = task._id
+        delete task._id
         const collection = await dbService.getCollection('task')
-        await collection.updateOne({ _id: ObjectId(task._id) }, { $set: taskToSave })
+        await collection.updateOne({ _id: ObjectId(id) }, { $set: { ...task } })
+        task._id = id
         return task
     } catch (err) {
-        logger.error(`cannot update task ${task._id}`, err)
+        logger.error(`cannot update task ${task._Id}`, err)
         throw err
     }
 }
 
-async function addTaskMsg(taskId, msg) {
-    try {
-        msg.id = utilService.makeId()
-        const collection = await dbService.getCollection('task')
-        await collection.updateOne({ _id: ObjectId(taskId) }, { $push: { msgs: msg } })
-        return msg
-    } catch (err) {
-        logger.error(`cannot add task msg ${taskId}`, err)
-        throw err
-    }
-}
-
-async function removeTaskMsg(taskId, msgId) {
+async function removeMany() {
     try {
         const collection = await dbService.getCollection('task')
-        await collection.updateOne({ _id: ObjectId(taskId) }, { $pull: { msgs: { id: msgId } } })
-        return msgId
+        const results = await collection.deleteMany()
+        return results
     } catch (err) {
-        logger.error(`cannot add task msg ${taskId}`, err)
+        logger.error(`cannot remove all task`, err)
         throw err
     }
 }
@@ -102,6 +92,7 @@ async function performTask(task) {
     const taskToSave = { ...task }
     try {
         // TODO: update task status to running and save to DB
+
         taskToSave.status = 'running'
         await update(taskToSave)
         // TODO: execute the task using: externalService.execute
@@ -126,7 +117,7 @@ async function performTask(task) {
 async function getNextTask() {
     try {
         const collection = await dbService.getCollection('task')
-        const nextTask = await collection.find({ triesCount: { $lt: 5 },status:{$ne:'done'} }).sort({ importance: -1, triesCount: 1 }).limit(1).toArray()
+        const nextTask = await collection.find({ triesCount: { $lt: 5 }, status: { $ne: 'done' } }).sort({ importance: -1, triesCount: 1 }).limit(1).toArray()
         return nextTask[0]
     } catch (err) {
         logger.error('Failed to get Mongo nextTask', err)
@@ -134,7 +125,54 @@ async function getNextTask() {
     }
 }
 
+function getRandomTitle() {
+    const length = utilService.getRandomInt(1, 5)
+    let title = ''
+    for (var i = 0; i < length; i++) {
+        title += words[utilService.getRandomInt(1, words.length - 1)]
+    }
+    return title
+}
+function getRandomDescription() {
+    const length = utilService.getRandomInt(1, 5)
+    let title = ''
+    for (var i = 0; i < length; i++) {
+        title += words[utilService.getRandomInt(1, words.length - 1)]
+    }
+    return title
+}
 
+var words = [
+    'The sky',
+    'above',
+    'the port',
+    'was',
+    'the color of television',
+    'tuned',
+    'to',
+    'a dead channel',
+    'All',
+    'this happened',
+    'more or less',
+    'I',
+    'had',
+    'the story',
+    'bit by bit',
+    'from various people',
+    'and',
+    'as generally',
+    'happens',
+    'in such cases',
+    'each time',
+    'it',
+    'was',
+    'a different story',
+    'It',
+    'was',
+    'a pleasure',
+    'to',
+    'burn',
+]
 
 module.exports = {
     remove,
@@ -143,8 +181,9 @@ module.exports = {
     add,
     addMany,
     update,
-    addTaskMsg,
-    removeTaskMsg,
+    removeMany,
     performTask,
-    getNextTask
+    getNextTask,
+    getRandomTitle,
+    getRandomDescription
 }

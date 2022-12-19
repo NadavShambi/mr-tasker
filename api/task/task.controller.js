@@ -1,5 +1,5 @@
 const taskService = require('./task.service.js')
-
+const utilService = require('../../services/util.service')
 const logger = require('../../services/logger.service')
 const externalService = require('../../services/external.service')
 
@@ -43,13 +43,20 @@ async function addTask(req, res) {
     res.status(500).send({ err: 'Failed to add task' })
   }
 }
-async function addTasks(req, res) {
+async function generateTasks(req, res) {
 
   try {
-    const tasks = req.body
-    console.log('CONTROLLER',tasks);
-    const addedTasks = await taskService.addMany(tasks)
-    res.json(addedTasks)
+    const tasks = []
+    for (var i = 0; i < 10; i++) {
+      const title = taskService.getRandomTitle()
+      const desc = taskService.getRandomDescription()
+      tasks.push(getEmptyTask(title, utilService.getRandomInt(1, 3), desc))
+    }
+
+    console.log(tasks)
+    const insertedTasks = await taskService.addMany(tasks)
+    res.json(tasks)
+
   } catch (err) {
     logger.error('Failed to add tasks', err)
     res.status(500).send({ err: 'Failed to add task' })
@@ -122,11 +129,37 @@ async function performTask(req, res) {
   }
 }
 
+async function clear(req, res) {
+  try {
+    await taskService.removeMany()
+    res.end()
+  } catch (error) { }
+}
+
+function getEmptyTask(title, importance, description) {
+  return {
+    title,
+    status: 'new task',
+    description: description,
+    importance,
+    createdAt: Date.now(),
+    lastTriedAt: null,
+    triesCount: 0,
+    doneAt: null,
+    errors: [],
+  }
+}
+
 var timeout
-var isWorkerOn = true
+function toggleWorker(req, res) {
+  isWorkerOn = !isWorkerOn
+  runWorker()
+  res.end()
+}
+var isWorkerOn = false
+
 async function runWorker(req, res) {
   // The isWorkerOn is toggled by the button: "Start/Stop Task Worker"
-
   if (!isWorkerOn) return
   var delay = 5000
   try {
@@ -154,25 +187,19 @@ async function runWorker(req, res) {
 }
 
 
-function execute(task) {
-  return new Promise((resolve, reject) => {
-    setTimeout(() => {
-      if (Math.random() > 0.5) resolve(parseInt(Math.random() * 100))
-      // TODO: throw some more random errors
-      else reject('High Temparture');
-    }, 5000)
-  })
-}
+
 
 module.exports = {
   getTasks,
   getTaskById,
   addTask,
-  addTasks,
+  generateTasks,
   updateTask,
   removeTask,
   addTaskMsg,
   removeTaskMsg,
   performTask,
-  runWorker
+  runWorker,
+  toggleWorker,
+  clear
 }

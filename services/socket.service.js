@@ -114,6 +114,21 @@ function _printSocket(socket) {
   console.log(`Socket - socketId: ${socket.id} userId: ${socket.userId}`)
 }
 
+function setUp(server, cors) {
+  const { Server } = require('socket.io')
+  gIo = new Server(server, { cors })
+  gIo.on('connection', (socket) => {
+    console.log('a user connected')
+    console.info(`Socket ${socket.id} has connected to tasks namesapce`)
+  })
+}
+
+
+function emit(eventname, data) {
+  gIo.emit(eventname, data)
+}
+
+
 module.exports = {
   // set up the sockets service and define the API
   setupSocketAPI,
@@ -124,4 +139,7 @@ module.exports = {
   // Send to all sockets BUT not the current socket - if found
   // (otherwise broadcast to a room / to all)
   broadcast,
+
+  setUp,
+  emit
 }
