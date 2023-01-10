@@ -1,5 +1,6 @@
 const taskService = require('./task.service.js')
 const utilService = require('../../services/util.service')
+const socketService = require('../../services/socket.service')
 const logger = require('../../services/logger.service')
 const externalService = require('../../services/external.service')
 
@@ -151,12 +152,13 @@ function getEmptyTask(title, importance, description) {
 }
 
 var timeout
+var isWorkerOn = false
 function toggleWorker(req, res) {
   isWorkerOn = !isWorkerOn
+  socketService.emit('setToggleWorker', isWorkerOn)
   runWorker()
   res.end()
 }
-var isWorkerOn = false
 
 async function runWorker(req, res) {
   // The isWorkerOn is toggled by the button: "Start/Stop Task Worker"
